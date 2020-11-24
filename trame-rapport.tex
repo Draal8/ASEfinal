@@ -1,0 +1,204 @@
+\documentclass[a4paper]{article}
+
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[french]{babel}
+\usepackage{mathpazo}
+\usepackage[scaled]{helvet}
+\usepackage{courier}
+\usepackage[margin=20mm]{geometry}
+\usepackage{tabularx}
+
+\makeatletter
+\newenvironment{expl}{%
+  \begin{list}{}{%
+      \small\itshape%
+      \topsep\z@%
+      \listparindent0pt%\parindent%
+      \parsep0.75\baselineskip%\parskip%
+      \setlength{\leftmargin}{20mm}%
+      \setlength{\rightmargin}{20mm}%
+    }
+  \item[]}%
+  {\end{list}}
+\makeatother
+
+\title{Rapport de TP \\ Architecture des systèmes d'exploitation}
+\author{Prénom Nom}
+\date{Novembre 2020}
+
+\begin{document}
+
+\maketitle
+
+% Mettez une table des matières si votre rapport contient plus
+% de 3 pages ou si vous ne suivez pas le plan suggéré :
+%\tableofcontents
+
+% supprimez toutes les explications comprises entre \begin{expl}
+% et \end{expl} dans votre rapport.
+\begin{expl}
+  Ce document vous suggère une trame de rapport de TP.
+\end{expl}
+
+\section{Introduction}
+
+\begin{expl}
+  Rappelez très brièvement le sujet et esquissez les principes de
+  votre solution, en une dizaine de lignes maximum.
+\end{expl}
+
+\section{Structure de données}
+
+\subsection{Structures de données partagées}\label{sec-shm}
+
+\begin{expl}
+  Décrivez ici la structure de votre segment de mémoire partagée,
+  ainsi que toutes les structures annexes que vous y utilisez. Pour
+  chaque donnée, indiquez son nom, sa nature (entier, sémaphore,
+  tableau de X...), sa valeur initiale, et décrivez en quelques
+  mots son usage.
+
+  Par exemple, si le restaurant disposait d'un kit de premier secours
+  à l'usage des convives, on décrirait la structure correspondante~:
+
+  \begin{tabularx}{\linewidth}{|l|l|l|X|}
+    \hline
+    \multicolumn{4}{|l|}{Kit de premier secours du restaurant
+      (\texttt{struct premiersecours})}
+    \\ \hline
+    Champ & Type & Init & Description \\ \hline
+    ps & kit\_t & -- & un kit complet (cf. documentation de
+    \texttt{libausecours}) \\ \hline
+    mx\_ps & sem\_t & 1 & sémaphore utilisé pour garantir l'exclusion
+    mutuelle
+    \\ \hline
+  \end{tabularx}
+
+  On considère que tout ce qui est décrit dans cette section existe
+  depuis la création du restaurant jusqu'à sa fermeture.
+\end{expl}
+
+% \subsection{Autres données partagées}
+% 
+% \begin{expl}
+%   Indiquez toutes les autres données partagées entre certains ou tous
+%   les processus. La forme est la même que dans la section précédente.
+%   Précisez aussi à quel moment ces données sont créées, et à quel
+%   moment elles disparaissent.
+% \end{expl}
+
+\subsection{Structures de données non partagées}
+
+\begin{expl}
+  Indiquez toutes les autres structures de données utilisées par
+  toute ou partie des processus. La forme est la même que dans la
+  section précédente. Précisez aussi à quel moment ces données sont
+  créées et à quel moment elles disparaissent.
+\end{expl}
+
+\section{Synchronisations}
+
+\begin{expl}
+  Chacune des sous-sections suivantes doit décrire un aspect de la
+  synchronisation. Elles ont toutes la même organisation, et doivent
+  contenir deux ou trois parties clairement délimitées.
+
+  La première partie décrit tous les objets impliqués dans la
+  synchronisation de l'accueil des groupes dans le restaurant. Il
+  s'agit des données «~normales~» (par exemple un entier) et des
+  sémaphores. Pour chacun de ces éléments, précisez si il est rattaché
+  au restaurant globalement ou à un groupe (ou encore à un convive).
+
+  Par exemple, si le restaurant était muni au bar de distributeurs de
+  gel hydroalcoolique grâce auxquels les convives peuvent se nettoyer les
+  mains, il faudrait mentionner~:
+
+  \begin{tabularx}{\linewidth}{|l|l|X|}
+    \hline
+    distributeurs & sem\_t & le sémaphore représentant le nombre de
+    distributeurs \underline{du restaurant} (voir section~\ref{sec-shm})
+    \\ \hline
+    monid & int & le nom \underline{du convive}
+    \\ \hline
+  \end{tabularx}
+
+  La seconde partie doit contenir un pseudo-code de ce qu'exécute
+  \emph{chaque} acteur impliqué (le restaurant, le convive, autres).
+  Seuls les aspects importants doivent être présentés~: opérations sur
+  les sémaphores, affectation de valeurs aux variables
+  partagées... Le reste (par exemple les messages liés à
+  \texttt{DEBUG\_OUTPUT}) ne doivent pas apparaître ici.
+
+  Dans l'exemple des distributeurs de gel, le pseudo-code serait~:
+
+\begin{verbatim}
+// Ce code est exécuté par le convive
+P (distributeurs)
+se_laver_les_mains (monid)
+V (distributeurs)
+\end{verbatim}
+
+  La troisième partie contient toutes les remarques que vous jugerez
+  pertinentes. Vous pouvez par exemple y préciser les conditions de
+  concurrence, ou les éventuelles limitations ou propriétés
+  remarquables de votre solution.
+
+  Dans l'exemple des distributeurs de gel, vous pourriez préciser que
+  vous avez pensé à implémenter à la place une attente limitée dans le
+  temps pour les convives qui portaient des gants en entrant (en
+  expliquant comment vous auriez fait), mais que cela aurait compliqué
+  le code pour un intérêt limité.
+
+  Vous pouvez ajouter des sous-sections si vous avez d'autres
+  synchronisations importantes, ou fragmenter celles qui vous sont
+  proposée ci-dessous.
+\end{expl}
+
+
+\subsection{Arrivée d'un convive}
+
+\begin{expl}
+  Expliquez dans cette sous-section, conformément aux indications
+  ci-dessus, tout ce qui se passe lorsqu'un convive arrive au
+  restaurant, ainsi que toutes les informations échangées pendant
+  cette prise en charge. N'oubliez pas d'indiquer qui (restaurant~?
+  convive~? autre~?) exécute quel code.
+\end{expl}
+
+\subsection{Contrôle des autorités}
+
+\begin{expl}
+  Cette section explique en détail tout ce qui se passe lors d'un
+  contrôle des autorités. Donnez le détail du mécanisme de
+  transmission du cahier de rappels.
+\end{expl}
+
+\subsection{Ouverture et fermeture du restaurant}
+
+\begin{expl}
+  Expliquez l'effet de l'ouverture et de la fermeture du restaurant
+  sur tous les processus actifs (vous pouvez faire deux sections
+  distinctes si vous le jugez utile). Précisez clairement quel code
+  est exécuté par qui, et ne répétez pas du code déjà donné plus haut.
+\end{expl}
+
+\section{Remarques sur l'implémentation}
+
+\begin{expl}
+  Placez ici toute remarque relative à vos choix d'implémentation (si
+  vous en avez). Par exemple~: si vous avez placé des temporisations
+  particulières pour vérifier que certains cas de concurrence étaient
+  gérés correctement, expliquez cela dans cette section. Toute autre
+  remarque qui aide à comprendre votre code est à placer ici.
+\end{expl}
+
+\section{Conclusion}
+
+\begin{expl}
+  Tirez les conclusions de votre projet~: limites de votre
+  implémentation, difficultés particulières, subtilités dont vous êtes
+  fiers, etc.
+\end{expl}
+
+\end{document}
