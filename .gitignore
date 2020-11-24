@@ -1,0 +1,12 @@
+*.o
+*.gc
+*.log
+chrono
+restaurant
+police
+convive
+fermeture
+tags
+core
+moodle.tgz
+
