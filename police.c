@@ -1,29 +1,38 @@
 #include "shm.h"
 
+int recherche (struct shm_registre *r, struct table t);
+
+//https://www.youtube.com/watch?v=SplJ7U0Jgtw
+
 int main() {
-	int flag = 0;
 	struct salle *s;
-	struct registre *r;
+	struct entree *e;
+	struct shm_registre *r;
 	s = mappy(SALLE_NAME);
+	e = mappy(ENTRYF_NAME);
+	
+	e->nb_convives = -2;
+	printf("tables :\n");
+	salle_dump(s, stdout);
+	sem_wait(&s->police);
+	
+	sem_post(&e->restaurateur);
+	sem_wait(&s->police);
+	
 	r = mappy(REGISTRY);
 	
-	salle_dump(s, stdout);
-	//faire une recherche des element de s dans r
-	
-	
-	
-	if (flag != 0) {
-		printf("Vous etes en infraction monsieur\n");
-		return -1;
+	int i, j;
+	printf("\ncahier d'appel :\n");
+	for (i = 0; i < r->taille; i++) {
+		printf ("chef : %s\n", r->re[i].chef);
+		for (j = 0; j < r->re[i].taille; j++) {
+			if (r->re[i].nom[j][0] != '\0')
+				printf ("\t%s\n", r->re[i].nom[j]);
+		}
 	}
 	
+	sem_post(&s->police);
+	unmappy(r);
     return 0;
 }
-
-
-
-
-
-
-
 

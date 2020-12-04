@@ -26,13 +26,19 @@ void salle_dump (struct salle *sal, FILE * fd) {
         fprintf (fd, "%4zd (->%4d): (%dp)", i, tabl->suiv, tabl->nb_places);
         
         if (tabl->chef[0] != '\0') {
-            int v;
+            int v, j;
             fprintf (fd, " %s", tabl->chef);
             
             if (sem_getvalue (&(tabl->prise), &v) == -1)
                 perror ("sem_getvalue");
             else
                 fprintf (fd, " (%d)", v);
+            
+            for (j = 0; j < tabl->nb_places; j++) {
+            	if (tabl->nom[j][0] != '\0') {
+            		printf (" %s", tabl->nom[j]);
+            	}
+            }
         }
         
         fprintf (fd, "\n");
@@ -42,17 +48,17 @@ void salle_dump (struct salle *sal, FILE * fd) {
 void *mappy(char *CST_FNAME) {
 	int fd;
 	struct stat s;
-	struct salle *sal;
+	void *v;
 	
 	CHECK((fd = shm_open(CST_FNAME, O_RDWR, S_IRWXU)));
 	CHECK(fstat(fd, &s));
-	if ((sal = mmap(NULL, s.st_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0)) == NULL) rerror("mmap stock_create()");
+	if ((v = mmap(NULL, s.st_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0)) == NULL) rerror("mmap stock_create()");
 	
-	return sal;
+	return v;
 }
 
-void salle_unmap(void *s) {
-	munmap(s, sizeof(*s));
+void unmappy(void *v) {
+	munmap(v, sizeof(*v));
 }
 
 

@@ -2,9 +2,9 @@
 
 int find_table (struct salle *sal, int nb_c);
 int take_table (struct salle *sal, int place, char *chef);
-int find_chef (struct salle *sal, char *nom);
+int find_chef (struct salle *sal, char *nom, char *chef);
 int registering (struct table t, char *nom, int nb_convives);
-void client_seppuku (struct salle *sal, int flag);
+void client_seppuku (struct salle *sal, char *nom, char *chef);
 
 int main(int argc, char *argv[]) {
 	if (argc < 3) {
@@ -16,18 +16,16 @@ int main(int argc, char *argv[]) {
 	s = mappy(SALLE_NAME);
 
 	salle_dump(s, stdout);
-	int i, a = atoi(argv[2]), flag;
+	int i, a = atoi(argv[2]);
 	
 	if (a == 0) {
-		flag = 0;
-		if ((i = find_chef(s, argv[2])) == -1) {
+		if ((i = find_chef(s, argv[1], argv[2])) == -1) {
 			printf("le chef de table n'est pas encore arrive\n");
 			//refouler le client
 			return -1;
 		}
 		registering(s->tables[i], argv[1], -1);
 	} else {
-		flag = 1;
 		if ((i = find_table(s, a)) == -1) {
 			printf("aucune table disponible\n");
 			//refouler le client
@@ -38,8 +36,11 @@ int main(int argc, char *argv[]) {
 	}
 	salle_dump(s, stdout);
 	
-	//client_seppuku(s, flag);
-	salle_unmap(s);
+	if (a == 0) {
+		client_seppuku(s, argv[1], argv[2]);
+	} else {
+		client_seppuku(s, argv[1], argv[1])
+	unmappy(s);
 	
     return 0;
 }
@@ -82,6 +83,7 @@ int find_table (struct salle *sal, int nb_c) {
 int take_table (struct salle *sal, int place, char *chef) {
 	int i, lasti;
 	
+	sem_wait(&sal->police);
 	sem_wait(&sal->tables[place].sem);
 	sem_wait(&sal->tables[place].prise);
 	
@@ -112,18 +114,25 @@ int take_table (struct salle *sal, int place, char *chef) {
 	sal->tables[place].chef[CHEF_SIZE-1] = '\0';	//au cas ou chef est trop grand
 	
 	sem_post(&sal->tables[place].sem);
+	sem_post(&sal->police);
 	return 0;
 }
 
-int find_chef(struct salle *sal, char *nom) {
-	int i;
+int find_chef(struct salle *sal, char *nom, char *chef) {
+	int i, j;
 	i = sal->occupes;
 	if (i == NULLPTR) {
 		return -1;
 	} else {
 		while (i != NULLPTR) {
-			if (strncmp(sal->tables[i].chef, nom, CHEF_SIZE) == 0) {
-				return i;
+			if (strncmp(sal->tables[i].chef, chef, CHEF_SIZE) == 0) {
+				for (j = 0; j < sal->tables[i].nb_places-1; j++) {
+					if (sal->tables[i].nom[j][0] == '\0') {
+						strncpy(sal->tables[i].nom[j], nom, CHEF_SIZE);
+						return i;
+					}
+				}
+				
 			}
 			i = sal->tables[i].suiv;
 		}
@@ -149,12 +158,11 @@ int registering(struct table t, char *nom, int nb_convives) {
 }
 
 
-void client_seppuku(struct salle *sal, int flag) {
+void client_seppuku(struct salle *sal, char *nom, char *chef) {
 	
 	
 	CHECK(sem_wait(&sal->tables[i].prise));
-	
-	
+		
 	
 	
 	
