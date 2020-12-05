@@ -11,14 +11,17 @@ int main() {
 	s = mappy(SALLE_NAME);
 	e = mappy(ENTRYF_NAME);
 	
-	e->nb_convives = -2;
+	e->nb_convives = -1;
 	printf("tables :\n");
 	salle_dump(s, stdout);
-	sem_wait(&s->police);
+	//sem_wait(&s->police);
 	
-	sem_post(&e->client);	//au client de faire quelque chose
+	sem_wait(&e->client);//on prends la main au tour du client
 	//si c'est libre alors pas de perte de donnees
-	sem_wait(&s->police);
+	//sem_wait(&s->police);
+	e->nb_convives = -3;
+	sem_post(&e->restaurateur);
+	sem_wait(&e->reponse);
 	
 	r = mappy(REGISTRY);
 	
@@ -32,7 +35,8 @@ int main() {
 		}
 	}
 	
-	sem_post(&s->police);
+	sem_post(&e->client);
+	//sem_post(&s->police);
 	unmappy(r);
     return 0;
 }

@@ -12,6 +12,65 @@ noreturn void rerror(char *str) {
 
 //struct salle *create_tables(int argc, char *argv[]);
 
+struct salle *create_tables(int argc, char *argv[]) {
+	int fd, i;
+	struct salle *s;
+	CHECK((fd = shm_open(SALLE_NAME, O_CREAT | O_TRUNC | O_RDWR, S_IRWXU)));
+	CHECK(ftruncate(fd, (off_t) SALLE_SIZE(argc-2)));
+	if ((s = mmap(NULL, SALLE_SIZE(argc-2), PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0)) == NULL) rerror("mmap create_tables()");
+	
+	s->taille = SALLE_SIZE(argc-2);
+	s->occupes = NULLPTR;
+	s->libres = 0;
+	s->nb_tables = argc-2;
+	
+	for (i = 0; i < argc-2; i++) {
+		s->tables[i].suiv = i+1;
+		s->tables[i].nb_places = atoi(argv[i+2]);
+		if (s->tables[i].nb_places == 0) {
+			rerror("Un argument n'est pas un chiffre > 0");
+		}
+		s->tables[i].chef[0] = '\0';
+		sem_init(&s->tables[i].sem, 1, 1);
+		sem_init(&s->tables[i].prise, 1, 1);
+	}
+	s->tables[i-1].suiv = NULLPTR;	//on modifie le dernier pour lui mettre la bonne valeur
+	
+	
+	sem_init(&s->police, 1, 1);
+	return s;
+}
+
+void destroy_tables(struct salle *s) {
+	int fd;
+	long unsigned int i;
+	
+	CHECK((fd = shm_open(SALLE_NAME, O_RDWR, S_IRWXU)));
+	
+	for (i = 0; i < SALLE_UNSIZE(sizeof(s)); i++) {
+		sem_destroy(&s->tables[i].sem);
+	}
+    CHECK(shm_unlink(SALLE_NAME));
+}
+
+struct entree *create_shm_entree() {
+	int fd;
+	struct entree *e;
+	
+	CHECK((fd = shm_open(ENTRYF_NAME, O_CREAT | O_TRUNC | O_RDWR, S_IRWXU)));
+	CHECK(ftruncate(fd, sizeof(struct entree)));
+	if ((e = mmap(NULL, sizeof(struct entree), PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0)) == NULL) rerror("mmap create_tables()");
+	
+	e->chef[0] = '\0';
+	e->nom[0] = '\0';
+	
+	sem_init(&e->reponse, 1, 0);
+	sem_init(&e->client, 1, 1);
+	sem_init(&e->restaurateur, 1, 0);
+	
+	return e;
+}
+
 void salle_dump (struct salle *sal, FILE * fd) {
     fprintf (fd, "ADRESSE DU SEGMENT %p\n", sal);
     fprintf (fd, "LIBRES %d OCCUPES %d", sal->libres, sal->occupes);

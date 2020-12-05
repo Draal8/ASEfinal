@@ -57,7 +57,8 @@ struct reg_table {
 struct entree {
 	char chef[CHEF_SIZE];
 	char nom[CHEF_SIZE];
-	int nb_convives;	//-2 police
+	int nb_convives;	//sert aussi a renseigner des codes
+	sem_t reponse;
 	sem_t client;
 	sem_t restaurateur;
 };
@@ -69,7 +70,7 @@ struct table {
 	char nom[5][CHEF_SIZE];
 	int suiv;
 	sem_t sem;
-	sem_t prise;
+	sem_t prise;	//sem_timedwait dessus et convive wait dessus
 };
 
 struct salle {
@@ -82,6 +83,9 @@ struct salle {
 	struct table tables[];
 };
 
+struct salle *create_tables(int argc, char *argv[]);
+void destroy_tables(struct salle *s);
+struct entree *create_shm_entree();
 void salle_dump (struct salle *sal, FILE * fd);
 void *mappy(char *CST_FNAME);
 void unmappy(void *v);
