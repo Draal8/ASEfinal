@@ -54,6 +54,7 @@ struct salle *create_tables(int argc, char *argv[]) {
 	s->taille = SALLE_SIZE(argc-2);
 	s->occupes = NULLPTR;
 	s->libres = 0;
+	s->nb_tables = argc-2;
 	
 	for (i = 0; i < argc-2; i++) {
 		s->tables[i].suiv = i+1;
@@ -66,7 +67,7 @@ struct salle *create_tables(int argc, char *argv[]) {
 		sem_init(&s->tables[i].prise, 1, 1);
 	}
 	s->tables[i-1].suiv = NULLPTR;	//on modifie le dernier pour lui mettre la bonne valeur
-	s->nb_tables = 0;
+	
 	
 	sem_init(&s->police, 1, 1);
 	return s;

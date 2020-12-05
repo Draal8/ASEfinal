@@ -16,7 +16,8 @@ int main() {
 	salle_dump(s, stdout);
 	sem_wait(&s->police);
 	
-	sem_post(&e->restaurateur);
+	sem_post(&e->client);	//au client de faire quelque chose
+	//si c'est libre alors pas de perte de donnees
 	sem_wait(&s->police);
 	
 	r = mappy(REGISTRY);

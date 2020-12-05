@@ -36,10 +36,6 @@ int main(int argc, char *argv[]) {
 	}
 	salle_dump(s, stdout);
 	
-	if (a == 0) {
-		client_seppuku(s, argv[1], argv[2]);
-	} else {
-		client_seppuku(s, argv[1], argv[1])
 	unmappy(s);
 	
     return 0;
@@ -153,18 +149,27 @@ int registering(struct table t, char *nom, int nb_convives) {
 	e->nom[CHEF_SIZE-1] = '\0';
 	
 	sem_post(&e->restaurateur);
-	
+	unmappy(e);
 	return 0;
 }
 
-
+/*
 void client_seppuku(struct salle *sal, char *nom, char *chef) {
+	int i, j;
 	
+	for (i = 0; i < sal->nb_tables; i++) {
+		if (strncmp(chef, sal->tables[i].chef, CHEF_SIZE) == 0) {
+			sem_wait(&sal->tables[i].sem);
+			for (j = 0; j < sal->tables[i].nb_places; j++) {
+				if (strncmp(nom, sal->tables[i].nom[j], CHEF_SIZE) == 0) {
+					memset(sal->tables[i].nom[j], '\0', CHEF_SIZE);
+					sem_post(&sal->tables[i].sem);
+					return;
+				}
+			}
+			sem_post(&sal->tables[i].sem);
+		}
+	}
 	
-	CHECK(sem_wait(&sal->tables[i].prise));
-		
-	
-	
-	
-}
+}*/
 
