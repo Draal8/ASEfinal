@@ -19,9 +19,9 @@
 #include <sys/types.h>
 #include <sys/mman.h>
 
-#define SALLE_NAME "/service"
-#define ENTRYF_NAME "/entryfile"
-#define REGISTRY "/registry"
+#define SALLE_NAME "/jduprat009service"
+#define ENTRYF_NAME "/jduprat009entryfile"
+#define REGISTRY "/jduprat009registry"
 #define SALLE_SIZE(ntabl) sizeof (struct salle) + (ntabl)*sizeof (struct table)
 #define SALLE_UNSIZE(size) (size - sizeof (struct salle)) / sizeof (struct table)
 #define REGISTRY_SIZE(ntabl) sizeof(struct shm_registre) + (ntabl)*sizeof (struct reg_entr)
