@@ -36,11 +36,13 @@ int main(int argc, char *argv[]) {
 		return -2;
 	}
 	sem_post(&e->client);
-	unmappy(e);
+	
 	salle_dump(s, stdout);
 	printf("data->num = %d\n", place);
 	sem_wait(&s->tables[place].prise);
+	//sem_post(&e->restaurateur);
 	
+	unmappy(e);
 	unmappy(s);
     return 0;
 }

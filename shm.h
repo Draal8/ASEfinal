@@ -78,6 +78,7 @@ struct salle {
 	int nb_tables;
 	int occupes;
 	int libres;
+	int fermeture;
 	struct table tables[];
 };
 

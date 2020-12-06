@@ -4,7 +4,7 @@ int arg_check(int argc, char *argv[]);
 int find_chef(struct salle *sal, char *nom, char *chef);
 int find_table (struct salle *sal, int nb_c);
 int take_table (struct salle *sal, int place, char *chef);
-void add_entree(struct salle *s, struct entree *e);
+void add_entree(struct entree *e);
 void add_soumis(struct salle *s, struct entree *e, int place);
 void recopier_registre();
 struct salle *create_tables(struct entree *e, int argc, char *argv[]);
@@ -29,16 +29,16 @@ int main(int argc, char *argv[]) {
 		return -1;
 	}
 	
-	int wt, place;
+	int i, place;
 	struct salle *s;
 	struct entree *e;
 	e = create_shm_entree();
 	s = create_tables(e, argc, argv);
 	
 	salle_dump(s, stdout);
-	wt = sem_wait(&e->restaurateur);
+	sem_wait(&e->restaurateur);
 	
-	while (wt == 0) {
+	while (s->fermeture == 0) {
 		if (e->nb_convives == -3) {
 			recopier_registre(s);
 			sem_post(&e->reponse);
@@ -51,11 +51,11 @@ int main(int argc, char *argv[]) {
 				e->nb_convives = -2;
 			}
 			sem_post(&e->reponse);
-		} else {
+		} else if (s->fermeture == 0) {
 			place = find_table(s, e->nb_convives);
 			if (place != -1) {
 				take_table(s, place, e->chef);
-				add_entree(s, e);
+				add_entree(e);
 				e->nb_convives = place;
 				if (s->tables[place].nb_prevus == 1)
 					sem_post(&th[place].sem);
@@ -65,7 +65,18 @@ int main(int argc, char *argv[]) {
 			sem_post(&e->reponse);
 		}
 		
-		wt = sem_wait(&e->restaurateur);
+		sem_wait(&e->restaurateur);
+	}
+	
+	for (i = 0; i < s->nb_tables; i++) {
+		sem_post(&th[i].sem);
+	}
+	
+	int *v = malloc(sizeof(int));
+	for (i = 0; i < s->nb_tables; i++) {
+		if ((errno = pthread_join(pth[i], (void **) &v)) != 0)
+			rerror("pthread_join");
+		printf("thread %d exité\n", *v);
 	}
 	
     return 0;
@@ -166,7 +177,7 @@ int take_table (struct salle *sal, int place, char *chef) {
 }
 
 
-void add_entree(struct salle *s, struct entree *e) {
+void add_entree(struct entree *e) {
 	int i;
 	struct reg_table *r, *tmp;
 	if ((r = malloc(sizeof(*r))) == NULL) {
@@ -197,7 +208,7 @@ void add_entree(struct salle *s, struct entree *e) {
 		tmp->suiv = r;
 	}
 	reg_taille++;
-	s->nb_tables++;
+	//s->nb_tables++;
 	sem_post(&e->client);
 }
 
@@ -261,6 +272,7 @@ struct salle *create_tables(struct entree *e, int argc, char *argv[]) {
 	s->occupes = NULLPTR;
 	s->libres = 0;
 	s->nb_tables = argc-2;
+	s->fermeture = 0;
 	
 	for (i = 0; i < argc-2; i++) {
 		s->tables[i].suiv = i+1;
@@ -312,39 +324,66 @@ void *f (void *arg) {
 	long int sec = data->delai/1000;
 	
 	//boucle
-	//printf("on attends les clients\n");
-	sem_wait(&data->sem);	//signal de prise de la table
-	//printf("table prise\n");
 	
 	while (1) {
+		//printf("on attends les clients\n");
+		sem_wait(&data->sem);	//signal de prise de la table
+		//printf("table prise\n");
+		
+		if (data->s->fermeture == 1) {
+			printf("fermeture\n");
+			if (data->s->tables[data->num].chef[0] == '\0') {
+				sem_wait(&data->s->tables[data->num].sem);	//on bloque la table
+				pthread_exit(&data->num);
+			}
+		}
+		
 		clock_gettime(CLOCK_REALTIME, &t);
 		t.tv_sec += sec + (t.tv_nsec + nsec)/1000000000;
 		t.tv_nsec = (t.tv_nsec + nsec)%1000000000;
+		printf("3 semaphores\n");
 		sem_timedwait(&data->s->tables[data->num].prise, &t);
 		sem_wait(&data->e->client);	//on bloque l'entree
 		sem_wait(&data->s->tables[data->num].sem);	//on bloque la table
 		
+		printf("sortie des 3 semaphores\n");
 		errno = 0;
+		printf ("nb_convives = %d\n", data->s->tables[data->num].nb_convives);
 		for (i = 0; i < data->s->tables[data->num].nb_convives ; i++) {
 			sem_post(&data->s->tables[data->num].prise);
-			printf ("data->num = %d\n", data->num);
+			printf("post %d : %d\n", i, data->num);
+			//sem_wait(&data->e->restaurateur);
 			//les clients peuvent se terminer
 		}
-		
+		printf("\n\nsortie\n\n");
 		memset(data->s->tables[data->num].chef, '\0', CHEF_SIZE);
-		for (i = 0; i < data->s->tables[data->num].nb_places; i++) {
+		for (i = 0; i < data->s->tables[data->num].nb_convives; i++) {
 			memset(data->s->tables[data->num].nom[i], '\0', CHEF_SIZE);
 		}
 		
 		data->s->tables[data->num].nb_prevus = 0;
 		data->s->tables[data->num].nb_convives = 0;
 		
+		i = data->s->occupes;
+		if (i == data->num) {
+			data->s->occupes = data->s->tables[data->num].suiv;
+		} else {
+			while (data->s->tables[i].suiv != data->num) {
+				i = data->s->tables[i].suiv;
+			}
+			data->s->tables[i].suiv = data->s->tables[data->num].suiv;
+		}
+		data->s->tables[data->num].suiv = data->s->libres;
+		data->s->libres = data->num;
+		
 		salle_dump(data->s, stdout);
 		sem_post(&data->s->tables[data->num].sem);
 		sem_post(&data->e->client);
+		
+		printf("fermeture\n");
+		if (data->s->fermeture == 1) break;
 	}
-	
-	pthread_exit(0);
+	pthread_exit(&data->num);
 }
 
 void usage() {
@@ -356,7 +395,7 @@ int arg_check(int argc, char *argv[]) {
 	int i, j, a;
 	for (i = 1; i < argc; i++) {
 		a = atoi(argv[i]);
-		if (a < 1 || a > 6) return 1;
+		if (i > 1 && (a < 1 || a > 6)) return 1;
 		for (j = 0; j < (int) strlen(argv[i]); j++) {
 			if (argv[i][j] < 48 || argv[i][j] > 57) return 1;
 		}

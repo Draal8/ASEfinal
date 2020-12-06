@@ -5,7 +5,7 @@ void usage();
 //https://www.youtube.com/watch?v=SplJ7U0Jgtw
 
 int main(int argc, char *argv[]) {
-	if (argc != 0) {
+	if (argc != 1) {
 		if (argv[0][0] == '\0') {;}	//un moment on nous force a compiler avec Werror
 		usage();
 		return -1;
