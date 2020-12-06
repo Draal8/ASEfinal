@@ -17,8 +17,6 @@
 # couverture-et-tests	: automatise les tests avec rapport de couverture
 #
 
-TESTPATH = test
-
 COV = -coverage
 
 CFLAGS = -g -Wall -Wextra -Werror $(COVERAGE)
@@ -46,7 +44,7 @@ gcov:
 	gcov *.c
 
 test: $(CHRONO) $(PROGS)
-	@for i in $(TESTPATH)/test-*.sh ; do echo $$i ; sh timeout.sh $$i || exit 1 ; done
+	@for i in test-*.sh ; do echo $$i ; sh timeout.sh $$i || exit 1 ; done
 
 couverture-et-tests: clean coverage test gcov
 

@@ -1,10 +1,16 @@
 #include "shm.h"
 
-int recherche (struct shm_registre *r, struct table t);
+void usage();
 
 //https://www.youtube.com/watch?v=SplJ7U0Jgtw
 
-int main() {
+int main(int argc, char *argv[]) {
+	if (argc != 0) {
+		if (argv[0][0] == '\0') {;}	//un moment on nous force a compiler avec Werror
+		usage();
+		return -1;
+	}
+	
 	struct salle *s;
 	struct entree *e;
 	struct shm_registre *r;
@@ -39,5 +45,10 @@ int main() {
 	//sem_post(&s->police);
 	unmappy(r);
     return 0;
+}
+
+void usage() {
+	char *str = "usage: ./police\n";
+	write(STDERR_FILENO, str, strlen(str));
 }
 

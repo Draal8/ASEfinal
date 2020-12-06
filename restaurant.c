@@ -1,26 +1,39 @@
 #include "shm.h"
 
+int arg_check(int argc, char *argv[]);
 int find_chef(struct salle *sal, char *nom, char *chef);
 int find_table (struct salle *sal, int nb_c);
 int take_table (struct salle *sal, int place, char *chef);
 void add_entree(struct salle *s, struct entree *e);
-void add_soumis(struct entree *e);
-void recopier_registre(struct salle *sal);
+void add_soumis(struct salle *s, struct entree *e, int place);
+void recopier_registre();
+struct salle *create_tables(struct entree *e, int argc, char *argv[]);
+void thr_tabl(struct entree *e, struct salle *s, int delai, int nb_tables);
+void *f (void *arg);
+void usage();
 
 struct reg_table *registre = NULL;
 int reg_taille = 0;
 
+pthread_t *pth;
+struct th_data *th;
+
 int main(int argc, char *argv[]) {
 	if (argc < 3) {
-		errno = EINVAL;	//replace by usage
-		rerror("Not enough arguments (min 3)");
+		usage();
+		return -1;
+	}
+	
+	if (arg_check(argc, argv) == 1) {
+		usage();
+		return -1;
 	}
 	
 	int wt, place;
 	struct salle *s;
 	struct entree *e;
-	s = create_tables(argc, argv);
 	e = create_shm_entree();
+	s = create_tables(e, argc, argv);
 	
 	salle_dump(s, stdout);
 	wt = sem_wait(&e->restaurateur);
@@ -32,7 +45,8 @@ int main(int argc, char *argv[]) {
 		} else if (e->nb_convives == 0) {
 			place = find_chef(s, e->nom, e->chef);
 			if (place != -1) {
-				add_soumis(e);	//et oui il faut penser au feminin comme au masculin
+				add_soumis(s, e, place);	//et oui il faut penser au feminin comme au masculin
+				e->nb_convives = place;
 			} else {
 				e->nb_convives = -2;
 			}
@@ -42,6 +56,9 @@ int main(int argc, char *argv[]) {
 			if (place != -1) {
 				take_table(s, place, e->chef);
 				add_entree(s, e);
+				e->nb_convives = place;
+				if (s->tables[place].nb_prevus == 1)
+					sem_post(&th[place].sem);
 			} else {
 				e->nb_convives = -1;
 			}
@@ -102,10 +119,10 @@ int find_table (struct salle *sal, int nb_c) {
 			i = sal->tables[i].suiv;
 		}
 		
-		
 		sem_post(s_t);
 	}
 	
+	sal->tables[lasti].nb_prevus = nb_c;
 	return lasti;
 }
 
@@ -114,7 +131,7 @@ int take_table (struct salle *sal, int place, char *chef) {
 	int i, lasti;
 	
 	sem_wait(&sal->tables[place].sem);
-	sem_wait(&sal->tables[place].prise);
+	//sem_wait(&sal->tables[place].prise);
 	
 	i = sal->libres;
 	if (i == place) {
@@ -142,8 +159,9 @@ int take_table (struct salle *sal, int place, char *chef) {
 	strncpy(sal->tables[place].chef, chef, CHEF_SIZE-1);
 	sal->tables[place].chef[CHEF_SIZE-1] = '\0';	//au cas ou chef est trop grand
 	
+	sal->tables[place].nb_convives = 1;
+	
 	sem_post(&sal->tables[place].sem);
-	sem_post(&sal->police);
 	return 0;
 }
 
@@ -184,7 +202,7 @@ void add_entree(struct salle *s, struct entree *e) {
 }
 
 
-void add_soumis(struct entree *e) {
+void add_soumis(struct salle *s, struct entree *e, int place) {
 	int i;
 	struct reg_table *tmp;
 	tmp = registre;
@@ -195,12 +213,15 @@ void add_soumis(struct entree *e) {
 	if (i < tmp->nb_convives-1) {
 		strncpy(tmp->soumis[i], e->nom, CHEF_SIZE);
 	}
-		
-	sem_post(&e->client);
+	
+	s->tables[place].nb_convives++;
+	if (s->tables[place].nb_convives == tmp->nb_convives) {
+		sem_post(&th[place].sem);
+	}
 }
 
 
-void recopier_registre(struct salle *sal) {
+void recopier_registre() {
 	int fd, i, j;
 	struct reg_table *rt = registre;
 	struct shm_registre *reg;
@@ -226,7 +247,120 @@ void recopier_registre(struct salle *sal) {
 	
 	sem_init(&reg->sem, 1, 1);
 	unmappy(reg);
-	sem_post(&sal->police);
 }
 
+
+struct salle *create_tables(struct entree *e, int argc, char *argv[]) {
+	int fd, i;
+	struct salle *s;
+	CHECK((fd = shm_open(SALLE_NAME, O_CREAT | O_TRUNC | O_RDWR, S_IRWXU)));
+	CHECK(ftruncate(fd, (off_t) SALLE_SIZE(argc-2)));
+	if ((s = mmap(NULL, SALLE_SIZE(argc-2), PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0)) == NULL) rerror("mmap create_tables()");
+	
+	s->taille = SALLE_SIZE(argc-2);
+	s->occupes = NULLPTR;
+	s->libres = 0;
+	s->nb_tables = argc-2;
+	
+	for (i = 0; i < argc-2; i++) {
+		s->tables[i].suiv = i+1;
+		s->tables[i].nb_places = atoi(argv[i+2]);
+		if (s->tables[i].nb_places == 0) {
+			rerror("Un argument n'est pas un chiffre > 0");
+		}
+		s->tables[i].chef[0] = '\0';
+		s->tables[i].nb_prevus = 0;
+		s->tables[i].nb_convives = 0;
+		sem_init(&s->tables[i].sem, 1, 1);
+		sem_init(&s->tables[i].prise, 1, 0);
+	}
+	s->tables[i-1].suiv = NULLPTR;	//on modifie le dernier pour lui mettre la bonne valeur
+	
+	thr_tabl(e, s, atoi(argv[1]), argc-2);
+	return s;
+}
+
+
+void thr_tabl(struct entree *e, struct salle *s, int delai, int nb_tables) {
+	pthread_t *tid;
+	int i;
+	struct th_data *ti;
+	tid = malloc (nb_tables * sizeof(pthread_t));
+	ti = malloc (nb_tables * sizeof(struct th_data));
+	
+	pth = tid;
+	th = ti;
+	
+	for (i = 0; i < nb_tables; i++) {
+		ti[i].num = i;
+		ti[i].delai = delai;
+		ti[i].s = s;
+		ti[i].e = e;
+		sem_init(&ti[i].sem, 1, 0);
+		if ((errno = pthread_create(&tid[i], NULL, f, &ti[i])) != 0)
+			rerror("pthread_create");
+		//printf ("creation de %ld\n", tid[i]);
+	}
+}
+
+
+void *f (void *arg) {
+	int i;
+	struct th_data *data = arg;
+	struct timespec t;
+	long int nsec = (data->delai%1000) * 1000000;
+	long int sec = data->delai/1000;
+	
+	//boucle
+	//printf("on attends les clients\n");
+	sem_wait(&data->sem);	//signal de prise de la table
+	//printf("table prise\n");
+	
+	while (1) {
+		clock_gettime(CLOCK_REALTIME, &t);
+		t.tv_sec += sec + (t.tv_nsec + nsec)/1000000000;
+		t.tv_nsec = (t.tv_nsec + nsec)%1000000000;
+		sem_timedwait(&data->s->tables[data->num].prise, &t);
+		sem_wait(&data->e->client);	//on bloque l'entree
+		sem_wait(&data->s->tables[data->num].sem);	//on bloque la table
+		
+		errno = 0;
+		for (i = 0; i < data->s->tables[data->num].nb_convives ; i++) {
+			sem_post(&data->s->tables[data->num].prise);
+			printf ("data->num = %d\n", data->num);
+			//les clients peuvent se terminer
+		}
+		
+		memset(data->s->tables[data->num].chef, '\0', CHEF_SIZE);
+		for (i = 0; i < data->s->tables[data->num].nb_places; i++) {
+			memset(data->s->tables[data->num].nom[i], '\0', CHEF_SIZE);
+		}
+		
+		data->s->tables[data->num].nb_prevus = 0;
+		data->s->tables[data->num].nb_convives = 0;
+		
+		salle_dump(data->s, stdout);
+		sem_post(&data->s->tables[data->num].sem);
+		sem_post(&data->e->client);
+	}
+	
+	pthread_exit(0);
+}
+
+void usage() {
+	char *str = "usage: ./restaurant tmp(ms) nb1 nb2 ...\n";
+	write(STDERR_FILENO, str, strlen(str));
+}
+
+int arg_check(int argc, char *argv[]) {
+	int i, j, a;
+	for (i = 1; i < argc; i++) {
+		a = atoi(argv[i]);
+		if (a < 1 || a > 6) return 1;
+		for (j = 0; j < (int) strlen(argv[i]); j++) {
+			if (argv[i][j] < 48 || argv[i][j] > 57) return 1;
+		}
+	}
+	return 0;
+}
 

@@ -12,6 +12,7 @@
 #include <errno.h>
 #include <string.h>
 
+#include <pthread.h>
 #include <semaphore.h>
 #include <fcntl.h>
 #include <sys/stat.h>
@@ -50,8 +51,6 @@ struct reg_table {
 	char chef[CHEF_SIZE];
 	char **soumis;
 	struct reg_table *suiv;
-	
-	//tab
 };
 
 struct entree {
@@ -65,6 +64,7 @@ struct entree {
 
 struct table {
 	int nb_places;
+	int nb_prevus;
 	int nb_convives;
 	char chef[CHEF_SIZE];	//j'ai glissé, chef
 	char nom[5][CHEF_SIZE];
@@ -78,19 +78,22 @@ struct salle {
 	int nb_tables;
 	int occupes;
 	int libres;
-	sem_t police;
-	//sem_t restaurateur;
 	struct table tables[];
 };
 
-struct salle *create_tables(int argc, char *argv[]);
+struct th_data {
+	int num;
+	int delai;
+	struct salle *s;
+	struct entree *e;
+	sem_t sem;
+};
+
 void destroy_tables(struct salle *s);
 struct entree *create_shm_entree();
 void salle_dump (struct salle *sal, FILE * fd);
 void *mappy(char *CST_FNAME);
 void unmappy(void *v);
-struct salle *create_tables(int argc, char *argv[]);
-
 
 
 #endif

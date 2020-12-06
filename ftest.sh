@@ -103,7 +103,7 @@ fail ()
 tu ()
 {
     # Rappel: "! cmd" => inverse le code de retour de cmd
-    ! grep -q "usage: " $TMP
+    ! grep "usage: " $TMP
 }
 
 ###############################################################################
