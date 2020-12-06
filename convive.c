@@ -22,19 +22,28 @@ int main(int argc, char *argv[]) {
 
 	salle_dump(s, stdout);
 	
+	printf("%s registering\n", argv[1]);
 	registering(e, argv[1], argv[2]);
+	printf("%s attends la reponse\n", argv[1]);
 	sem_wait(&e->reponse);
+	printf("%s a recu la reponse\n", argv[1]);
 	place = e->nb_convives;
 	
 	if (place == -1) {
 		printf("Il n'y a plus de places dans le restaurant\n");
 		sem_post(&e->client);
-		return -1;
+		return 0;
 	} else if (place == -2) {
 		printf("Votre chef n'est pas encore arrive\n");
 		sem_post(&e->client);
-		return -2;
-	}
+		return 0;
+	} /*else if (place == -3) {
+		printf("T'etais pas prevu sur la reservation\n");
+		sem_post(&e->client);
+		return 0;
+	}*/
+	
+	printf("Bienvenue %s, vous avez la table %d\n", argv[1], place);
 	sem_post(&e->client);
 	
 	salle_dump(s, stdout);

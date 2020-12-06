@@ -15,6 +15,7 @@ int main(int argc, char *argv[]) {
 	s = mappy(SALLE_NAME);
 	
 	sem_wait(&e->client);
+	sem_post(&e->client);
 	s->fermeture = 1;
 	sem_post(&e->restaurateur);
 		

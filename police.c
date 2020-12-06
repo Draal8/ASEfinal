@@ -19,7 +19,7 @@ int main(int argc, char *argv[]) {
 	
 	e->nb_convives = -1;
 	printf("tables :\n");
-	salle_dump(s, stdout);
+	//salle_dump(s, stdout);
 	//sem_wait(&s->police);
 	
 	sem_wait(&e->client);//on prends la main au tour du client
@@ -27,23 +27,38 @@ int main(int argc, char *argv[]) {
 	//sem_wait(&s->police);
 	e->nb_convives = -3;
 	sem_post(&e->restaurateur);
-	sem_wait(&e->reponse);
+	sem_wait(&e->police);
+	sem_post(&e->client);
 	
 	r = mappy(REGISTRY);
 	
 	int i, j;
-	printf("\ncahier d'appel :\n");
-	for (i = 0; i < r->taille; i++) {
-		printf ("chef : %s\n", r->re[i].chef);
-		for (j = 0; j < r->re[i].taille; j++) {
-			if (r->re[i].nom[j][0] != '\0')
-				printf ("\t%s\n", r->re[i].nom[j]);
+	for (i = 0; i < s->nb_tables; i++) {
+		if (s->tables[i].nb_convives != 0) {
+			printf("Table %d : %s ", i, s->tables[i].chef);
+			for (j = 0; j < s->tables[i].nb_convives-1; j++) {
+				printf("%s ", s->tables[i].nom[j]);
+			}
+			printf("\n");
+		} else {
+			printf("Table %d : (vide)\n", i);
 		}
 	}
 	
-	sem_post(&e->client);
+	printf("\ncahier de rappels :\n");
+	for (i = 0; i < r->taille; i++) {
+		printf ("Groupe %d : %s ", i+1, r->re[i].chef);
+		for (j = 0; j < r->re[i].taille; j++) {
+			if (r->re[i].nom[j][0] != '\0')
+				printf ("%s ", r->re[i].nom[j]);
+		}
+		printf("\n");
+	}
+	
 	//sem_post(&s->police);
-	unmappy(r);
+	sem_destroy(&r->sem);
+	CHECK(shm_unlink(REGISTRY));
+	
     return 0;
 }
 

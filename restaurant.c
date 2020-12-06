@@ -1,5 +1,6 @@
 #include "shm.h"
 
+void fermeture();
 int arg_check(int argc, char *argv[]);
 int find_chef(struct salle *sal, char *nom, char *chef);
 int find_table (struct salle *sal, int nb_c);
@@ -14,6 +15,7 @@ void usage();
 
 struct reg_table *registre = NULL;
 int reg_taille = 0;
+int servis = 0;
 
 pthread_t *pth;
 struct th_data *th;
@@ -41,12 +43,13 @@ int main(int argc, char *argv[]) {
 	while (s->fermeture == 0) {
 		if (e->nb_convives == -3) {
 			recopier_registre(s);
-			sem_post(&e->reponse);
+			sem_post(&e->police);
 		} else if (e->nb_convives == 0) {
 			place = find_chef(s, e->nom, e->chef);
 			if (place != -1) {
 				add_soumis(s, e, place);	//et oui il faut penser au feminin comme au masculin
 				e->nb_convives = place;
+				servis++;
 			} else {
 				e->nb_convives = -2;
 			}
@@ -59,9 +62,12 @@ int main(int argc, char *argv[]) {
 				e->nb_convives = place;
 				if (s->tables[place].nb_prevus == 1)
 					sem_post(&th[place].sem);
+				servis++;
 			} else {
 				e->nb_convives = -1;
 			}
+			sem_post(&e->reponse);
+		} else {
 			sem_post(&e->reponse);
 		}
 		
@@ -79,7 +85,15 @@ int main(int argc, char *argv[]) {
 		printf("thread %d exité\n", *v);
 	}
 	
+	fermeture(s, e);
+    printf("%d conv\n%d groupe\n", servis, reg_taille);
     return 0;
+}
+
+
+void fermeture() {
+	CHECK(shm_unlink(ENTRYF_NAME));
+	CHECK(shm_unlink(SALLE_NAME));
 }
 
 
@@ -91,7 +105,7 @@ int find_chef(struct salle *sal, char *nom, char *chef) {
 	} else {
 		while (i != NULLPTR) {
 			if (strncmp(sal->tables[i].chef, chef, CHEF_SIZE) == 0) {
-				for (j = 0; j < sal->tables[i].nb_places-1; j++) {
+				for (j = 0; j < sal->tables[i].nb_prevus-1; j++) {
 					if (sal->tables[i].nom[j][0] == '\0') {
 						strncpy(sal->tables[i].nom[j], nom, CHEF_SIZE);
 						return i;
@@ -133,7 +147,7 @@ int find_table (struct salle *sal, int nb_c) {
 		sem_post(s_t);
 	}
 	
-	sal->tables[lasti].nb_prevus = nb_c;
+	if (lasti != -1) sal->tables[lasti].nb_prevus = nb_c;
 	return lasti;
 }
 

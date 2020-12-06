@@ -12,18 +12,6 @@ noreturn void rerror(char *str) {
 
 //struct salle *create_tables(int argc, char *argv[]);
 
-void destroy_tables(struct salle *s) {
-	int fd;
-	long unsigned int i;
-	
-	CHECK((fd = shm_open(SALLE_NAME, O_RDWR, S_IRWXU)));
-	
-	for (i = 0; i < SALLE_UNSIZE(sizeof(s)); i++) {
-		sem_destroy(&s->tables[i].sem);
-	}
-    CHECK(shm_unlink(SALLE_NAME));
-}
-
 struct entree *create_shm_entree() {
 	int fd;
 	struct entree *e;
@@ -38,6 +26,7 @@ struct entree *create_shm_entree() {
 	sem_init(&e->reponse, 1, 0);
 	sem_init(&e->client, 1, 1);
 	sem_init(&e->restaurateur, 1, 0);
+	sem_init(&e->police, 1, 0);
 	
 	return e;
 }

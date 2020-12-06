@@ -60,6 +60,7 @@ struct entree {
 	sem_t reponse;
 	sem_t client;
 	sem_t restaurateur;
+	sem_t police;
 };
 
 struct table {
@@ -90,7 +91,6 @@ struct th_data {
 	sem_t sem;
 };
 
-void destroy_tables(struct salle *s);
 struct entree *create_shm_entree();
 void salle_dump (struct salle *sal, FILE * fd);
 void *mappy(char *CST_FNAME);
